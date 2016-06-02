@@ -10,7 +10,7 @@ Node.js application for Raspberry Pi to manage a garage door using multiple entr
 
 * Raspberry Pi Models: 2, 3.
 * Node.js Versions: 4.x, 5.x, 6.x
-* 
+* Raspbian
 
 ## Hardware
 
@@ -100,7 +100,7 @@ Sending SMS alerts is performed using the Twilio library for Node.js. You'll nee
     "my_number": "---your Twilio from phone number---"
 }
 ```
-## Hardware Setup
+## Keypad and Relay Setup
 
 Perhaps the most challenging part of this project was determining how to setup the physical keypad and relay. The devices selected for this prject were a 4x4 matrix keypad  (approximate cost $7.49US) and a one channel 5V relay compatible with Raspberry Pi and Arduino (approximate cost $4.95US).
 
@@ -127,3 +127,7 @@ TBD
 There are two entries in the configuration file associated with the relay. `relay_delay_msec` specifies the number of miliseconds to wait before flipping the relay off after it has been activated. 500 msec (half a second) seems reasonable. Be sure to test with your garage door opener and adjust as necessary.
 
 The second entry `relay_pin` specifies the physical pin to wire to the relay's input/trigger. The other two wires will need to be wired to the Pi's 5V and GND pins, respectfully. The example file specified pin 8 which corresponds to GPIO14.
+
+#### Pi Networking
+
+This project relies upon the Pi being able to connect to the Internet (so that alerts can be sent through Twilio). If you're not planning on supporting this feature your Pi certainly doesn't need to be connected to the Internet.
