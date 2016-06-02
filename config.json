@@ -1,0 +1,59 @@
+{
+    "entries": [
+        {
+            "name": "David",
+            "code": "12345",
+            "alert": "all"
+        },
+        {
+            "name": "Lila",
+            "code": "81813",
+            "alert": "all",
+            "message": "Lila has opened the garage door"
+        },
+        {
+            "name": "Emergency",
+            "code": "911911",
+            "alert": "all",
+            "message": "An EMERGENCY alert has been triggered"
+        },
+        {
+            "name": "Carmen",
+            "code": "721136",
+            "alert": "all",
+            "valid_days": {
+                "tuesday": 1,
+                "wednesday": 1
+            },
+            "valid_hours": {
+                "start": 8,
+                "end": 15
+            }
+        },
+        {
+            "name": "Cicero",
+            "code": "93216",
+            "alert": "all",
+            "valid_days": {
+                "monday": 1
+            },
+            "valid_hours": {
+                "start": 9,
+                "end": 15
+            }
+        }
+    ],
+    "alerts": {
+        "all": [
+            "---mobile-number-for-alerts---",
+            "---second alert number----"
+        ]
+    },
+    "twilio": {
+        "account_sid": "---your twilio SID goes here---",
+        "auth_token": "---your twilio auth token-------",
+        "my_number": "---your Twilio from phone number---"
+    },
+    "relay_pin": 8,
+    "relay_delay_msec": 500
+}
