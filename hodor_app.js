@@ -19,7 +19,17 @@ var TOOLONG_MSEC = 2500;
 var currentCode = '';
 
 var twilio_account = config.twilio;
-var twilio_client = new twilio.RestClient(twilio_account["account_sid"], twilio_account["auth_token"]);
+var twilio_client = null;
+
+function setupTwilio () {
+    if (twilio_account == null) {
+        console.log ('Twilio configuration not found');
+        return;
+    }
+
+    console.log ('Configuring Twilio for SMS alerts...');
+    var twilio_client = new twilio.RestClient(twilio_account["account_sid"], twilio_account["auth_token"]);
+}
 
 // --------------------------------------------------------------------
 // Setup our initial state for our GPIO pins
@@ -332,6 +342,10 @@ function triggerDoorRelay () {
 // --------------------------------------------------------------------
 function sendSMSMessage (entry) {
 
+    if (twilio_client == null) {
+        return;
+    }
+
     var msg = entry.message;
 
     if (msg == null || msg.length == 0)
@@ -341,6 +355,10 @@ function sendSMSMessage (entry) {
     if (alert_code != null && alert_code.length > 0) {
 
         var sms_numbers = config.alerts [alert_code];
+
+        if (sms_numbers == null || sms_numbers.length == 0) {
+            return;
+        }
 
         for (var i = 0; i < sms_numbers.length; i++) {
             sendSMSviaTwilio (sms_numbers[i], msg);
@@ -383,12 +401,12 @@ function triggerRelayPin () {
     var relay_pin = config.relay_pin;
     var relay_delay_msec = config.relay_delay_msec;
 
-    console.log ('Turning GPIO ' + relay_pin + ' on...');
+    //console.log ('Turning GPIO ' + relay_pin + ' on...');
     rpio.open(relay_pin, rpio.OUTPUT);
     rpio.write (relay_pin, rpio.HIGH);
 
     setTimeout(function() {
-        console.log ('Turning GPIO ' + relay_pin + ' off...');
+        //console.log ('Turning GPIO ' + relay_pin + ' off...');
         rpio.open(relay_pin, rpio.OUTPUT);
         rpio.write (relay_pin, rpio.LOW);
         rpio.close (relay_pin);
@@ -408,7 +426,8 @@ console.log ('Twilio account SID: ' + config.twilio.account_sid);
 for (var i = 0; i < config.entries.length; i++)
     console.log ('Code found for: ' + config.entries[i].name);
 
-console.log ('Listening...');
-
 setupPins ();
 setupHandlers (true);
+setupTwilio ();
+
+console.log ('Listening...');
