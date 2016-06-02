@@ -6,8 +6,17 @@ Node.js application for Raspberry Pi to manage a garage door using multiple entr
 
 * Raspberry Pi Models: 2, 3.
 * Node.js Versions: 4.x, 5.x, 6.x
+* 
 
-## Install
+## Hardware
+
+* Raspberry Pi Model 3
+* Single Relay Module (5V)
+* 4x4 matrix keypad
+* Some length of CAT5 cable (8 conductors, total) for wiring keypad
+* 3D printed case for Raspberry Pi + single channel relay
+
+## Software Installation
 
 The software is comprised of the `hodor_app.js` file and a single configuration file named `config.json`. Clone the files in this repository and copy the `config_example.json` to `config.json` and update it to reflect your personal preferences in terms of activation codes, GPIO pin for the relay and Twilio account information for sending SMS messages.
 
@@ -38,7 +47,7 @@ $ npm install rpio
 ```console
 $ npm install twilio
 ```
-## Configuration
+## Software Configuration
 
 The configuration file for `hodor` is a sinle JSON file. Door entry codes are represented by JSON objects stored in a array associated with the name `entries`. An example entry looks like:
 
@@ -89,5 +98,28 @@ Sending SMS alerts is performed using the Twilio library for Node.js. You'll nee
 ```
 ## Hardware Setup
 
-Perhaps the most challenging part of this project is determining how to setup the physical keypad and relay. The devices selected for this prject were a 4x4 matrix keypad  (approximate cost $7.49US) and a one channel 5V relay compatible with Raspberry Pi and Arduino (approximate cost $4.95US).
+Perhaps the most challenging part of this project was determining how to setup the physical keypad and relay. The devices selected for this prject were a 4x4 matrix keypad  (approximate cost $7.49US) and a one channel 5V relay compatible with Raspberry Pi and Arduino (approximate cost $4.95US).
 
+Currently the code hardcodes rows and columns for the matrix keyboard and utilizes the following GPIO pins
+
+Columns
+```
+GPIO06, GPIO13, GPIO19, GPIO26,
+```
+
+Rows
+```
+GPIO12, GPIO16, GPIO20, GPIO21
+```
+
+This keeps the eight wires from the keypad nicely situated on one end of the Pi's GPIO header. It's important to note that the GPIO package used to control the pins, by default, uses physical pin numbers, as is represented in the code. Future versions will abstract these values to the configuration file.
+
+#### Keypad wiring
+
+TBD
+
+#### Relay controls
+
+There are two entries in the configuration file associated with the relay. `relay_delay_msec` specifies the number of miliseconds to wait before flipping the relay off after it has been activated. 500 msec (half a second) seems reasonable. Be sure to test with your garage door opener and adjust as necessary.
+
+The second entry `relay_pin` specifies the physical pin to wire to the relay's input/trigger. The other two wires will need to be wired to the Pi's 5V and GND pins, respectfully.
