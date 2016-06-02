@@ -2,6 +2,10 @@ hodor
 =====
 Node.js application for Raspberry Pi to manage a garage door using multiple entry codes and availability times and days. Utilizes a 4x4 keypad for code entry, Twilio for sending SMS alerts and a one channel relay for activating a garage door (can easily be modified to control multiple relays and multiple doors). Also utilizes the Raspberry Pi GPIO library for node.js by Jonathan Perkin (https://github.com/jperkin/node-rpio).
 
+![Raspberry Pi and Relay](https://github.com/davidgeller/hodor/blob/master/pi_and_relay.jpg)
+
+![Raspberry Pi and Relay](https://github.com/davidgeller/hodor/blob/master/keypad.jpg)
+
 ## Compatibility
 
 * Raspberry Pi Models: 2, 3.
