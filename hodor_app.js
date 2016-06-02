@@ -21,6 +21,9 @@ var currentCode = '';
 var twilio_account = config.twilio;
 var twilio_client = null;
 
+// --------------------------------------------------------------------
+// Setup our Twilio object for sending SMS messages
+// --------------------------------------------------------------------
 function setupTwilio () {
     if (twilio_account == null) {
         console.log ('Twilio configuration not found');
