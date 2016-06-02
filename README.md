@@ -78,6 +78,16 @@ Unless otherwise specified, SMS messages generated and sent for a specific entry
 
 ### Alerts
 
-Send SMS alerts is performed using the Twilio library for Node.js. You'll need to have an account with Twilio and obtain three things to successfully have hodor send alerts.
+Sending SMS alerts is performed using the Twilio library for Node.js. You'll need to have an account with Twilio and obtain three things to successfully have hodor send alerts: your accound SID, your AUTH_TOKEN and a telephone number your messages will appear to come from. This number is provided by Twilio. The area of the configuration file associated with Twilio looks like:
 
+```js
+"twilio": {
+    "account_sid": "---your twilio SID goes here---",
+    "auth_token": "---your twilio auth token-------",
+    "my_number": "---your Twilio from phone number---"
+}
+```
+## Hardware Setup
+
+Perhaps the most challenging part of this project is determining how to setup the physical keypad and relay. The devices selected for this prject were a 4x4 matrix keypad  (approximate cost $7.49US) and a one channel 5V relay compatible with Raspberry Pi and Arduino (approximate cost $4.95US).
 
