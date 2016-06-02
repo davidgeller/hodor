@@ -31,7 +31,7 @@ function setupTwilio () {
     }
 
     console.log ('Configuring Twilio for SMS alerts...');
-    var twilio_client = new twilio.RestClient(twilio_account["account_sid"], twilio_account["auth_token"]);
+    twilio_client = new twilio.RestClient(twilio_account["account_sid"], twilio_account["auth_token"]);
 }
 
 // --------------------------------------------------------------------
