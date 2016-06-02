@@ -122,4 +122,4 @@ TBD
 
 There are two entries in the configuration file associated with the relay. `relay_delay_msec` specifies the number of miliseconds to wait before flipping the relay off after it has been activated. 500 msec (half a second) seems reasonable. Be sure to test with your garage door opener and adjust as necessary.
 
-The second entry `relay_pin` specifies the physical pin to wire to the relay's input/trigger. The other two wires will need to be wired to the Pi's 5V and GND pins, respectfully.
+The second entry `relay_pin` specifies the physical pin to wire to the relay's input/trigger. The other two wires will need to be wired to the Pi's 5V and GND pins, respectfully. The example file specified pin 8 which corresponds to GPIO14.
