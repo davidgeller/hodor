@@ -1,59 +1,66 @@
 {
+    "alerts": {
+        "all": [
+            "---mobile-number-for-alerts---",
+            "---second alert number----"
+        ],
+        "test": ["----test_mode_number----"]
+    },
     "entries": [
         {
-            "name": "David",
+            "alert": "all",
             "code": "12345",
-            "alert": "all"
+            "name": "David"
         },
         {
-            "name": "Lila",
+            "name": "Test Mode",
+            "code": "777666111A",
+            "alert": "test",
+            "testmode": 1
+        },
+        {
+            "alert": "all",
             "code": "81813",
-            "alert": "all",
-            "message": "Lila has opened the garage door"
+            "message": "Lila has opened the garage door",
+            "name": "Lila"
         },
         {
-            "name": "Emergency",
+            "alert": "all",
             "code": "911911",
-            "alert": "all",
-            "message": "An EMERGENCY alert has been triggered"
+            "message": "An EMERGENCY alert has been triggered",
+            "name": "Emergency"
         },
         {
-            "name": "Carmen",
-            "code": "721136",
             "alert": "all",
+            "code": "721136",
+            "name": "Carmen",
             "valid_days": {
                 "tuesday": 1,
                 "wednesday": 1
             },
             "valid_hours": {
-                "start": 8,
-                "end": 15
+                "end": 15,
+                "start": 8
             }
         },
         {
-            "name": "Cicero",
-            "code": "93216",
             "alert": "all",
+            "code": "93216",
+            "name": "Cicero",
             "valid_days": {
                 "monday": 1
             },
             "valid_hours": {
-                "start": 9,
-                "end": 15
+                "end": 15,
+                "start": 9
             }
         }
     ],
-    "alerts": {
-        "all": [
-            "---mobile-number-for-alerts---",
-            "---second alert number----"
-        ]
-    },
+    "relay_delay_msec": 500,
+    "relay_pin": 8,
     "twilio": {
         "account_sid": "---your twilio SID goes here---",
         "auth_token": "---your twilio auth token-------",
         "my_number": "---your Twilio from phone number---"
-    },
-    "relay_pin": 8,
-    "relay_delay_msec": 500
+    }
 }
