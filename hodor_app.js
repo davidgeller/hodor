@@ -16,10 +16,14 @@ var days = ["sunday","monday","tuesday","wednesday","thursday","friday","saturda
 var lastKeyPressed = null;
 var timeBetweenKeysMsec = 0;
 var TOOLONG_MSEC = 2500;
+var TESTMODE_TIMEOUT_MSEC = 2 * 1000 * 60;
 var currentCode = '';
 
 var twilio_account = config.twilio;
 var twilio_client = null;
+
+var isTestMode = false;
+var testmodeEntry = null;
 
 // --------------------------------------------------------------------
 // Setup our Twilio object for sending SMS messages
@@ -269,8 +273,34 @@ function handleCode (code) {
     console.log ("\tvalid_hours: " + JSON.stringify (entry.valid_hours));
 
     if (isValidDay(entry) && isValidHour(entry)) {
-        triggerDoorRelay ();
-        sendSMSMessage (entry);
+
+        if (entry.testmode != null && entry.testmode == 1) {
+
+            // if we're in testmode - then toggle it off
+            if (testmode) {
+                testmode = false;
+                sendSMSMessageTestMode (entry, "Test mode deactivated");
+                return;
+            }
+
+            testmodeEntry = entry;
+            // alert that we're in test mode
+            sendSMSMessageTestMode (entry, "Test mode ACTIVE");
+            
+            // automatically turn off test mode if we forget
+            setTimeout(function() {
+                console.log ('Turning off test mode');
+                testmode = false;
+            }, TESTMODE_TIMEOUT_MSEC);
+        }
+
+        if (!testmode) {
+            triggerDoorRelay ();
+            sendSMSMessage (entry);
+        }
+        else {
+            sendSMSMessageTestMode (testmodeEntry, "Test Mode: code = " + code);
+        }
     }
     else {
         console.log ('ACCESS NOT PERMITTED at this time');
@@ -367,7 +397,30 @@ function sendSMSMessage (entry) {
             sendSMSviaTwilio (sms_numbers[i], msg);
         }
     }
+}
 
+// --------------------------------------------------------------------
+// send SMS message while in test mode
+// --------------------------------------------------------------------
+function sendSMSMessageTestMode (entry, msg) {
+    if (twilio_client == null) {
+        return;
+    }
+
+    var alert_code = entry.alert;
+    if (alert_code != null && alert_code.length > 0) {
+
+        var sms_numbers = config.alerts [alert_code];
+
+        if (sms_numbers == null || sms_numbers.length == 0) {
+            return;
+        }
+
+        for (var i = 0; i < sms_numbers.length; i++) {
+            sendSMSviaTwilio (sms_numbers[i], msg);
+        }
+    }
+    
 }
 
 // --------------------------------------------------------------------
