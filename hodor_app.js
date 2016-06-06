@@ -277,24 +277,27 @@ function handleCode (code) {
         if (entry.testmode != null && entry.testmode == 1) {
 
             // if we're in testmode - then toggle it off
-            if (testmode) {
-                testmode = false;
+            if (isTestMode) {
+                isTestMode = false;
                 sendSMSMessageTestMode (entry, "Test mode deactivated");
                 return;
             }
 
+            isTestMode = true;
+
             testmodeEntry = entry;
             // alert that we're in test mode
             sendSMSMessageTestMode (entry, "Test mode ACTIVE");
-            
+
             // automatically turn off test mode if we forget
             setTimeout(function() {
                 console.log ('Turning off test mode');
-                testmode = false;
+                sendSMSMessageTestMode (testmodeEntry, "Test deactivated after " + TESTMODE_TIMEOUT_MSEC/1000 + ' seconds');
+                isTestMode = false;
             }, TESTMODE_TIMEOUT_MSEC);
         }
 
-        if (!testmode) {
+        if (!isTestMode) {
             triggerDoorRelay ();
             sendSMSMessage (entry);
         }
@@ -420,7 +423,7 @@ function sendSMSMessageTestMode (entry, msg) {
             sendSMSviaTwilio (sms_numbers[i], msg);
         }
     }
-    
+
 }
 
 // --------------------------------------------------------------------
@@ -472,7 +475,7 @@ function triggerRelayPin () {
 
 console.log ('------------------------------------------------------');
 console.log ('H O D O R');
-console.log ('Version: 1.0 June 2, 2016');
+console.log ('Version: 1.1 June 6, 2016');
 console.log ('by David Geller')
 console.log ('Released as open source under the GPL')
 console.log ('------------------------------------------------------');
