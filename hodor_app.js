@@ -14,6 +14,7 @@
 var rpio = require('rpio');
 var twilio = require('twilio');
 var config = require('./config.json');
+var moment = require('moment');
 
 var COLS = [32,36,38,40];
 var ROWS = [31,33,35,37];
@@ -44,11 +45,11 @@ var doorOpened = false;
 // --------------------------------------------------------------------
 function setupTwilio () {
     if (twilio_account == null) {
-        console.log ('Twilio configuration not found');
+        logOut ('Twilio configuration not found');
         return;
     }
 
-    console.log ('Configuring Twilio for SMS alerts...');
+    logOut ('Configuring Twilio for SMS alerts...');
     twilio_client = new twilio.RestClient(twilio_account["account_sid"], twilio_account["auth_token"]);
 }
 
@@ -82,7 +83,7 @@ function setColsInput () {
 function buttonHandler (cbpin)
 {
     //var state = rpio.read(cbpin) ? 'pressed' : 'released';
-    //console.log('Button event on P%d (button currently %s)', cbpin, state);
+    //logOut('Button event on P%d (button currently %s)', cbpin, state);
     var pressed = rpio.read(cbpin);
 
     if (!pressed)
@@ -113,8 +114,8 @@ function buttonHandler (cbpin)
     if (row > 0 && col > 0)
         digit = digits [row-1][col-1];
 
-    //console.log (out + ' ' + buttons + ' ' + digit);
-    //console.log (digit);
+    //logOut (out + ' ' + buttons + ' ' + digit);
+    //logOut (digit);
 
     setupPins ();
     setupHandlers (true);
@@ -155,12 +156,12 @@ function getCol (pin) {
 function setupHandlers (active) {
 
         for (j = 0; j < COLS.length; j++) {
-            //console.log ('Setting up pin ' + COLS[j] + '...');
+            //logOut ('Setting up pin ' + COLS[j] + '...');
             rpio.poll (COLS[j], active ? buttonHandler : null);
         }
 
         for (j = 0; j < ROWS.length; j++) {
-            //console.log ('Setting up pin ' + ROWS[j] + '...');
+            //logOut ('Setting up pin ' + ROWS[j] + '...');
             rpio.poll (ROWS[j], active ? buttonHandler : null);
         }
 }
@@ -194,7 +195,7 @@ function handleKeyPress (key) {
 
         default:
             if (depressFrequencyTooLong (timeBetweenKeysMsec)) {
-                console.log (key + ' pressed after ' + timeBetweenKeysMsec + ' msec (TOO LONG)');
+                logOut (key + ' pressed after ' + timeBetweenKeysMsec + ' msec (TOO LONG)');
                 clearEntry ();
             }
             else {
@@ -248,7 +249,7 @@ function handleDigit (d) {
 // --------------------------------------------------------------------
 function endEntry () {
     if (currentCode.length > 0) {
-        console.log ('Code: ' + currentCode);
+        logOut ('Code: ' + currentCode);
 
         handleCode (currentCode);
         clearEntry ();
@@ -276,15 +277,15 @@ function handleCode (code) {
 
     var entry = getCodeDetails (code);
     if (entry == null) {
-        console.log ('No entry found for ' + code);
+        logOut ('No entry found for ' + code);
         return;
     }
 
-    console.log ("Entry [" + code + "]");
-    console.log ("\tname: " + entry.name);
-    console.log ("\talert: " + entry.alert);
-    console.log ("\tvalid_days: " + JSON.stringify (entry.valid_days));
-    console.log ("\tvalid_hours: " + JSON.stringify (entry.valid_hours));
+    logOut ("Entry [" + code + "]");
+    logOut ("\tname: " + entry.name);
+    logOut ("\talert: " + entry.alert);
+    logOut ("\tvalid_days: " + JSON.stringify (entry.valid_days));
+    logOut ("\tvalid_hours: " + JSON.stringify (entry.valid_hours));
 
     if (isValidDay(entry) && isValidHour(entry)) {
 
@@ -305,7 +306,7 @@ function handleCode (code) {
 
             // automatically turn off test mode if we forget
             setTimeout(function() {
-                console.log ('Turning off test mode');
+                logOut ('Turning off test mode');
                 sendSMSMessageTestMode (testmodeEntry, "Test deactivated after " + TESTMODE_TIMEOUT_MSEC/1000 + ' seconds');
                 isTestMode = false;
             }, TESTMODE_TIMEOUT_MSEC);
@@ -324,7 +325,7 @@ function handleCode (code) {
         }
     }
     else {
-        console.log ('ACCESS NOT PERMITTED at this time');
+        logOut ('ACCESS NOT PERMITTED at this time');
     }
 }
 
@@ -356,8 +357,8 @@ function isValidDay (entry) {
     var day = now.getDay ();
     var day_string = days [day];
 
-    console.log ('Day: ' + day);
-    console.log ('entry.valid_days [' + day_string + '] ' + entry.valid_days [days[day]]);
+    logOut ('Day: ' + day);
+    logOut ('entry.valid_days [' + day_string + '] ' + entry.valid_days [days[day]]);
 
     if (entry.valid_days [days[day]] != null)
         return true;
@@ -379,7 +380,7 @@ function isValidHour (entry) {
     var valid_start = entry.valid_hours ["start"];
     var valid_end = entry.valid_hours ["end"];
 
-    console.log ('Current hour: ' + hour + ' valid start: ' + valid_start + ' end: ' + valid_end);
+    logOut ('Current hour: ' + hour + ' valid start: ' + valid_start + ' end: ' + valid_end);
     return (hour >= valid_start && hour <= valid_end);
 }
 
@@ -387,7 +388,7 @@ function isValidHour (entry) {
 //
 // --------------------------------------------------------------------
 function triggerDoorRelay () {
-    console.log ('Triggering door relay!');
+    logOut ('Triggering door relay!');
     triggerRelayPin ();
 }
 
@@ -403,7 +404,7 @@ function sendSMSMessage (entry) {
     var msg = entry.message;
 
     if (msg == null || msg.length == 0)
-        msg = entry.name + ' has ' +  (doorOpened ? 'closed' : 'opened') + ' the garage door';
+        msg = entry.name + ' has activated the garage door';
 
     var alert_code = entry.alert;
     if (alert_code != null && alert_code.length > 0) {
@@ -482,9 +483,9 @@ function sendSMSviaTwilio (to, msg) {
             // The second argument to the callback will contain the information
             // sent back by Twilio for the request. In this case, it is the
             // information about the text messsage you just sent:
-            console.log('Success! SID: ' + message.sid + ' sent: ' + message.dateCreated);
+            logOut('Success! SID: ' + message.sid + ' sent: ' + message.dateCreated);
         } else {
-            console.log('Oops! There was an error.');
+            logOut('Oops! There was an error.');
         }
     });
 }
@@ -496,12 +497,12 @@ function triggerRelayPin () {
     var relay_pin = config.relay_pin;
     var relay_delay_msec = config.relay_delay_msec;
 
-    //console.log ('Turning GPIO ' + relay_pin + ' on...');
+    //logOut ('Turning GPIO ' + relay_pin + ' on...');
     rpio.open(relay_pin, rpio.OUTPUT);
     rpio.write (relay_pin, rpio.HIGH);
 
     setTimeout(function() {
-        //console.log ('Turning GPIO ' + relay_pin + ' off...');
+        //logOut ('Turning GPIO ' + relay_pin + ' off...');
         rpio.open(relay_pin, rpio.OUTPUT);
         rpio.write (relay_pin, rpio.LOW);
         rpio.close (relay_pin);
@@ -509,21 +510,29 @@ function triggerRelayPin () {
 
 }
 
-console.log ('------------------------------------------------------');
-console.log ('H O D O R');
-console.log ('Version: 1.2 June 6, 2016');
-console.log ('by David Geller')
-console.log ('Released as open source under the GPL')
-console.log ('------------------------------------------------------');
+// --------------------------------------------------------------------
+// Log message to console with timestamp
+// --------------------------------------------------------------------
+function logOut (msg) {
+    var ds = moment().format('MM/DD/YYYY HH:mm:ss');
+    console.log (ds + ' ' + msg);
+}
 
-console.log ('Twilio account SID: ' + config.twilio.account_sid);
+logOut ('------------------------------------------------------');
+logOut ('H O D O R');
+logOut ('Version: 1.3 June 7, 2016');
+logOut ('by David Geller')
+logOut ('Released as open source under the GPL')
+logOut ('------------------------------------------------------');
+
+logOut ('Twilio account SID: ' + config.twilio.account_sid);
 
 for (var i = 0; i < config.entries.length; i++)
-    console.log ('Code found for: ' + config.entries[i].name);
+    logOut ('Code found for: ' + config.entries[i].name);
 
 setupPins ();
 setupHandlers (true);
 setupTwilio ();
 
-console.log ('Listening...');
+logOut ('Listening...');
 sendSupportSMSMessage ("Hodor is now active!");
