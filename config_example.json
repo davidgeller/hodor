@@ -4,7 +4,8 @@
             "---mobile-number-for-alerts---",
             "---second alert number----"
         ],
-        "test": ["----test_mode_number----"]
+        "test": ["----test_mode_number----"],
+        "support": ["----support/admin_number----"]
     },
     "entries": [
         {
