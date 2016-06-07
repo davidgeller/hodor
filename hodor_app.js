@@ -1,3 +1,16 @@
+// --------------------------------------------------------------------
+// HODOR
+//
+// Garage door control software for the Raspberry Pi with Node.js
+//
+// Author: David Geller (June, 2016)
+//
+// Copyright (C) 2016.
+//
+// License: Open Source through GPL.
+//
+// --------------------------------------------------------------------
+
 var rpio = require('rpio');
 var twilio = require('twilio');
 var config = require('./config.json');
@@ -24,6 +37,7 @@ var twilio_client = null;
 
 var isTestMode = false;
 var testmodeEntry = null;
+var doorOpened = false;
 
 // --------------------------------------------------------------------
 // Setup our Twilio object for sending SMS messages
@@ -298,8 +312,12 @@ function handleCode (code) {
         }
 
         if (!isTestMode) {
+
             triggerDoorRelay ();
             sendSMSMessage (entry);
+
+            // keep track of our door state
+            doorOpened = !doorOpened;
         }
         else {
             sendSMSMessageTestMode (testmodeEntry, "Test Mode: code = " + code);
@@ -385,7 +403,7 @@ function sendSMSMessage (entry) {
     var msg = entry.message;
 
     if (msg == null || msg.length == 0)
-        msg = entry.name + ' has opened the garage door';
+        msg = entry.name + ' has ' +  (doorOpened ? 'closed' : 'opened') + ' the garage door';
 
     var alert_code = entry.alert;
     if (alert_code != null && alert_code.length > 0) {
@@ -423,7 +441,25 @@ function sendSMSMessageTestMode (entry, msg) {
             sendSMSviaTwilio (sms_numbers[i], msg);
         }
     }
+}
 
+// --------------------------------------------------------------------
+// Send a support message to the support alert group
+// --------------------------------------------------------------------
+function sendSupportSMSMessage (msg) {
+    if (twilio_client == null) {
+        return;
+    }
+
+    var sms_numbers = config.alerts ["support"];
+
+    if (sms_numbers == null || sms_numbers.length == 0) {
+        return;
+    }
+
+    for (var i = 0; i < sms_numbers.length; i++) {
+        sendSMSviaTwilio (sms_numbers[i], msg);
+    }
 }
 
 // --------------------------------------------------------------------
@@ -475,7 +511,7 @@ function triggerRelayPin () {
 
 console.log ('------------------------------------------------------');
 console.log ('H O D O R');
-console.log ('Version: 1.1 June 6, 2016');
+console.log ('Version: 1.2 June 6, 2016');
 console.log ('by David Geller')
 console.log ('Released as open source under the GPL')
 console.log ('------------------------------------------------------');
@@ -490,3 +526,4 @@ setupHandlers (true);
 setupTwilio ();
 
 console.log ('Listening...');
+sendSupportSMSMessage ("Hodor is now active!");
