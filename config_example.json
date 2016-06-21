@@ -4,8 +4,7 @@
             "---mobile-number-for-alerts---",
             "---second alert number----"
         ],
-        "test": ["----test_mode_number----"],
-        "support": ["----support/admin_number----"]
+        "test": ["----test_mode_number----"]
     },
     "entries": [
         {
@@ -59,6 +58,12 @@
     ],
     "relay_delay_msec": 500,
     "relay_pin": 8,
+    "timeout_msec": 3500,
+    "keypad": {
+        "rows": [31,33,35,37],
+        "cols": [32,36,38,40]
+    },
+    "sensor_pin":13
     "twilio": {
         "account_sid": "---your twilio SID goes here---",
         "auth_token": "---your twilio auth token-------",
