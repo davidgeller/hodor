@@ -9,6 +9,9 @@
 //
 // License: Open Source through GPL.
 //
+// Utilizes https://github.com/jperkin/node-rpio by Jonathan Perkins
+// for GPIO control.
+//
 // --------------------------------------------------------------------
 
 var rpio = require('rpio');
@@ -29,7 +32,7 @@ var days = ["sunday","monday","tuesday","wednesday","thursday","friday","saturda
 
 var lastKeyPressed = null;
 var timeBetweenKeysMsec = 0;
-var TOOLONG_MSEC = 2500;
+var TOOLONG_MSEC = config.timeout_msec;
 var TESTMODE_TIMEOUT_MSEC = 2 * 1000 * 60;
 var currentCode = '';
 
@@ -39,6 +42,16 @@ var twilio_client = null;
 var isTestMode = false;
 var testmodeEntry = null;
 var doorOpened = false;
+
+var relay_pin = config.relay_pin;
+var sensor_pin = config.sensor_pin;
+
+var keyPadRows = config.keypad.rows;
+var keyPadCols = config.keypad.cols;
+
+var lastSuccessfulCode = null;
+var lastEntry = null;
+var close_helper_seconds = config.close_helper_seconds;
 
 // --------------------------------------------------------------------
 // Setup our Twilio object for sending SMS messages
@@ -54,15 +67,49 @@ function setupTwilio () {
 }
 
 // --------------------------------------------------------------------
+// Setup initial state of relay pin(s)
+// --------------------------------------------------------------------
+function setupRelayPins () {
+    rpio.open(relay_pin, rpio.INPUT, rpio.LOW);
+}
+
+// --------------------------------------------------------------------
+// Setup our sensor pin handler so we can detected when our door is
+// open
+// --------------------------------------------------------------------
+function setupSensorPin () {
+    rpio.open(sensor_pin, rpio.INPUT, rpio.PULL_UP);
+    //rpio.poll (sensor_pin, sensorHandler);
+}
+
+// --------------------------------------------------------------------
+// Is our door open?
+// --------------------------------------------------------------------
+function isDoorOpen () {
+    var sensor_state = !rpio.read (sensor_pin);
+    logOut ("isDoorOpen: state = " + (sensor_state ? 'OPENED' : 'CLOSED'));
+    return sensor_state;
+}
+
+// --------------------------------------------------------------------
+// detect when our magnetic sensor is triggered. We've positioned it
+// in the open position.
+// --------------------------------------------------------------------
+function sensorHandler (pin) {
+    var state = rpio.read(pin);
+    logOut ("sensorHandler sensor state: " + state);
+}
+
+// --------------------------------------------------------------------
 // Setup our initial state for our GPIO pins
 // --------------------------------------------------------------------
-function setupPins () {
-    for (var j = 0; j < COLS.length; j++) {
-        rpio.open(COLS[j], rpio.OUTPUT, rpio.PULL_DOWN);
+function setupKeyPadPins () {
+    for (var j = 0; j < keyPadCols.length; j++) {
+        rpio.open(keyPadCols[j], rpio.OUTPUT, rpio.PULL_DOWN);
     }
 
-    for (var i = 0; i < ROWS.length; i++) {
-        rpio.open(ROWS[i], rpio.INPUT, rpio.PULL_DOWN);
+    for (var i = 0; i < keyPadRows.length; i++) {
+        rpio.open(keyPadRows[i], rpio.INPUT, rpio.PULL_DOWN);
     }
 }
 
@@ -72,8 +119,8 @@ function setupPins () {
 // change back
 // --------------------------------------------------------------------
 function setColsInput () {
-    for (var j = 0; j < COLS.length; j++) {
-        rpio.open(COLS[j], rpio.INPUT, rpio.PULL_DOWN);
+    for (var j = 0; j < keyPadCols.length; j++) {
+        rpio.open(keyPadCols[j], rpio.INPUT, rpio.PULL_DOWN);
     }
 }
 
@@ -100,12 +147,12 @@ function buttonHandler (cbpin)
     var row = getRow (cbpin);
     var col = 0;
 
-    for (var i = 0; i < COLS.length; i++) {
-        var state = rpio.read (COLS[i]);
+    for (var i = 0; i < keyPadCols.length; i++) {
+        var state = rpio.read (keyPadCols[i]);
         buttons += '' + state;
 
         if (state) {
-            col = getCol (COLS[i]);
+            col = getCol (keyPadCols[i]);
         }
     }
 
@@ -117,7 +164,7 @@ function buttonHandler (cbpin)
     //logOut (out + ' ' + buttons + ' ' + digit);
     //logOut (digit);
 
-    setupPins ();
+    setupKeyPadPins ();
     setupHandlers (true);
 
     if (digit.length > 0)
@@ -129,8 +176,8 @@ function buttonHandler (cbpin)
 // --------------------------------------------------------------------
 function getRow (pin) {
 
-    for (var i = 0; i < ROWS.length; i++) {
-        if (ROWS[i] == pin)
+    for (var i = 0; i < keyPadRows.length; i++) {
+        if (keyPadRows[i] == pin)
                 return i+1;
     }
 
@@ -142,8 +189,8 @@ function getRow (pin) {
 // --------------------------------------------------------------------
 function getCol (pin) {
 
-    for (var i = 0; i < COLS.length; i++) {
-        if (COLS[i] == pin)
+    for (var i = 0; i < keyPadCols.length; i++) {
+        if (keyPadCols[i] == pin)
             return i+1;
     }
 
@@ -155,14 +202,14 @@ function getCol (pin) {
 // --------------------------------------------------------------------
 function setupHandlers (active) {
 
-        for (j = 0; j < COLS.length; j++) {
+        for (j = 0; j < keyPadCols.length; j++) {
             //logOut ('Setting up pin ' + COLS[j] + '...');
-            rpio.poll (COLS[j], active ? buttonHandler : null);
+            rpio.poll (keyPadCols[j], active ? buttonHandler : null);
         }
 
-        for (j = 0; j < ROWS.length; j++) {
+        for (j = 0; j < keyPadRows.length; j++) {
             //logOut ('Setting up pin ' + ROWS[j] + '...');
-            rpio.poll (ROWS[j], active ? buttonHandler : null);
+            rpio.poll (keyPadRows[j], active ? buttonHandler : null);
         }
 }
 
@@ -193,6 +240,10 @@ function handleKeyPress (key) {
         //    triggerRelayPin ();
         //    break;
 
+        case 'C':
+            handleCButton ();
+            break;
+
         default:
             if (depressFrequencyTooLong (timeBetweenKeysMsec)) {
                 logOut (key + ' pressed after ' + timeBetweenKeysMsec + ' msec (TOO LONG)');
@@ -216,6 +267,19 @@ function getMSecSinceLastPress (last) {
 }
 
 // --------------------------------------------------------------------
+// when was our last successful code entry?
+// --------------------------------------------------------------------
+function getSecondsSinceLastSuccessfulCode () {
+
+    if (lastSuccessfulCode == null)
+        return 0;
+
+    var now = new Date ();
+    msec = now.getTime() - lastSuccessfulCode.getTime();
+    return (msec/1000);
+}
+
+// --------------------------------------------------------------------
 // We will start all entries with *
 // --------------------------------------------------------------------
 function handleStar () {
@@ -228,6 +292,29 @@ function handleStar () {
 // --------------------------------------------------------------------
 function handlePound () {
     endEntry ();
+}
+
+// --------------------------------------------------------------------
+// Easy way to close the door
+// --------------------------------------------------------------------
+function handleCButton () {
+
+    var sec = getSecondsSinceLastSuccessfulCode ();
+
+    if (sec == 0 || sec > close_helper_seconds) {
+        logOut ('handleCButton: threshold since last valid entry has passed; ignoring');
+        return;
+    }
+
+    if (!isDoorOpen()) {
+        logOut ('handleCButton: door was NOT open; ignoring');
+        return;
+    }
+
+    triggerDoorRelay ();
+
+    if (lastEntry != null)
+        sendSMSMessage (lastEntry);
 }
 
 // --------------------------------------------------------------------
@@ -317,8 +404,8 @@ function handleCode (code) {
             triggerDoorRelay ();
             sendSMSMessage (entry);
 
-            // keep track of our door state
-            doorOpened = !doorOpened;
+            lastSuccessfulCode = new Date ();
+            lastEntry = entry;
         }
         else {
             sendSMSMessageTestMode (testmodeEntry, "Test Mode: code = " + code);
@@ -402,9 +489,10 @@ function sendSMSMessage (entry) {
     }
 
     var msg = entry.message;
+    var door_open = isDoorOpen ();
 
     if (msg == null || msg.length == 0)
-        msg = entry.name + ' has activated the garage door';
+        msg = entry.name + ' has ' + (door_open ? 'closed' : 'opened') + ' the door';
 
     var alert_code = entry.alert;
     if (alert_code != null && alert_code.length > 0) {
@@ -518,19 +606,31 @@ function logOut (msg) {
     console.log (ds + ' ' + msg);
 }
 
+if (close_helper_seconds == null || close_helper_seconds == 0)
+    close_helper_seconds = 90;
+
 logOut ('------------------------------------------------------');
 logOut ('H O D O R');
-logOut ('Version: 1.3 June 7, 2016');
+logOut ('Version: 1.5 June 21, 2016');
 logOut ('by David Geller')
 logOut ('Released as open source under the GPL')
 logOut ('------------------------------------------------------');
 
 logOut ('Twilio account SID: ' + config.twilio.account_sid);
+logOut ('Keypad Columns: ' + JSON.stringify (keyPadCols));
+logOut ('Keypad Rows: ' + JSON.stringify (keyPadRows));
+logOut ('Relay pin: ' + relay_pin);
+logOut ('Sensor pin: ' + sensor_pin);
+logOut ('Timeout msec: ' + TOOLONG_MSEC);
+logOut ('Close helper threshold (sec): ' + close_helper_seconds);
 
 for (var i = 0; i < config.entries.length; i++)
     logOut ('Code found for: ' + config.entries[i].name);
 
-setupPins ();
+setupRelayPins ();
+setupSensorPin ();
+isDoorOpen ();
+setupKeyPadPins ();
 setupHandlers (true);
 setupTwilio ();
 
