@@ -721,8 +721,8 @@ if (close_helper_seconds == null || close_helper_seconds == 0)
 logOut ('------------------------------------------------------');
 logOut ('H O D O R');
 logOut ('Version: 1.6 September 4, 2016');
-logOut ('by David Geller')
-logOut ('Released as open source under the GPL')
+logOut ('by David Geller');
+logOut ('Released as open source under the GPL');
 logOut ('------------------------------------------------------');
 
 logOut ('Twilio account SID: ' + config.twilio.account_sid);
