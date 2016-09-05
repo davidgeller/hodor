@@ -52,6 +52,7 @@ var keyPadCols = config.keypad.cols;
 var lastSuccessfulCode = null;
 var lastEntry = null;
 var close_helper_seconds = config.close_helper_seconds;
+var temp_code_timeout_minutes = config.temp_code_ttl_minutes;
 
 // --------------------------------------------------------------------
 // Setup our Twilio object for sending SMS messages
@@ -260,22 +261,26 @@ function handleKeyPress (key) {
 // how many seconds since our last key press?
 // --------------------------------------------------------------------
 function getMSecSinceLastPress (last) {
-
-    var now = new Date ();
-    msec = now.getTime() - last.getTime();
-    return msec;
+    return secondsSince (last);
 }
 
 // --------------------------------------------------------------------
 // when was our last successful code entry?
 // --------------------------------------------------------------------
 function getSecondsSinceLastSuccessfulCode () {
+    return secondsSince (lastSuccessfulCode);
+}
 
-    if (lastSuccessfulCode == null)
+// --------------------------------------------------------------------
+// Return seconds since the supplied date
+// --------------------------------------------------------------------
+function secondsSince (d) {
+
+    if (d == null)
         return 0;
 
     var now = new Date ();
-    msec = now.getTime() - lastSuccessfulCode.getTime();
+    msec = now.getTime() - d.getTime();
     return (msec/1000);
 }
 
@@ -284,7 +289,6 @@ function getSecondsSinceLastSuccessfulCode () {
 // --------------------------------------------------------------------
 function handleStar () {
     startEntry ();
-
 }
 
 // --------------------------------------------------------------------
@@ -413,12 +417,91 @@ function handleCode (code) {
     }
     else {
         logOut ('ACCESS NOT PERMITTED at this time');
+
+        if (entry.temp_code_allowed == 1) {
+            createTemporaryCode(entry);
+        }
     }
+}
+
+
+// --------------------------------------------------------------------
+// Create a temporary code for someone who's code isn't working
+// or has shown up unscheduled. This code will be sent via SMS
+// to the admin group who can decide whether to share it with the
+// person(s) seeking access. It's designed to last for a short-time.
+// --------------------------------------------------------------------
+function createTemporaryCode (entry) {
+
+    logOut ('Creating temporary code for ' + entry.name + '...');
+    var sec_since_last_temp_code_generated = entry.sec_since_last_temp_code_generated;
+    var temp_code_timeout_sec = config.temp_code_timeout_seconds;
+
+    if (temp_code_timeout_sec == null)
+        temp_code_timeout_sec = 120;
+
+    if (sec_since_last_temp_code_generated != null && secondsSince (sec_since_last_temp_code_generated) < temp_code_timeout_sec) {
+        logOut ('It has been less than ' + temp_code_timeout_sec + ' seconds since last code generated; ignoring.');
+        return;
+    }
+
+    // mark the time we're generating a new code
+    entry.sec_since_last_temp_code_generated = new Date ();
+    createTemporaryEntry (entry);
+}
+
+// --------------------------------------------------------------------
+// Create a new in-memory entry to store a temporary code. These will
+// go away if Hodor is restarted
+// --------------------------------------------------------------------
+function createTemporaryEntry (entry) {
+
+    var name = "Temp entry for " + entry.name;
+    var code = generateRandomChars (5, '0123456789');
+    var expiration_msec = entry.sec_since_last_temp_code_generated.getTime()  + (config.temp_code_ttl_minutes * 60 * 1000);
+    var expires = new Date (expiration_msec);
+
+    var tempEntry = {
+        "name": name,
+        "code": code,
+        "alert": entry.alert,
+        "expires": expires
+    };
+
+    // add this new entry to our array of entries
+    config.entries.push (tempEntry);
+
+    logOut ('Temporary code ' + code + ' for ' + entry.name + ' will expire ' + expires);
+
+    //logOut ('tempEntry: ' + JSON.stringify(tempEntry) );
+    //logOut ('config.entries: ' + JSON.stringify(config.entries) );
+
+    var msg = "A temporary code (" + code + ") has been created for " +
+        entry.name + ". if you wish to share it, it's valid for " +
+        config.temp_code_ttl_minutes + " minutes.";
+
+    sendSMSMessageForEntry (entry, msg);
+}
+
+// --------------------------------------------------------------------
+// Generate a 'len' number of random characters from the specified
+// 'string'. Code taken from example shared in the post:
+// http://stackoverflow.com/questions/10726909/random-alpha-numeric-string-in-javascript
+// --------------------------------------------------------------------
+function generateRandomChars (len, string) {
+
+    var result = '';
+
+    for (var i = len; i > 0; --i)
+        result += string[Math.floor(Math.random() * string.length)];
+
+    return result;
 }
 
 // --------------------------------------------------------------------
 // pull details of our code from our configuration data; null if
-// not found
+// not found. Now checks to see if the entry has an expiration timestamp
+// and will check it if found.
 // --------------------------------------------------------------------
 function getCodeDetails (code) {
 
@@ -426,6 +509,17 @@ function getCodeDetails (code) {
 
         var entry = config.entries [i];
         if (entry != null && entry.code == code) {
+
+            var expires = entry.expires;
+            var now = new Date ();
+
+            if (expires != null) {
+                if (now.getTime() > expires.getTime()) {
+                    logOut (entry.name + ' EXPIRED');
+                    return null;
+                }
+            }
+
             return entry;
         }
     }
@@ -434,7 +528,7 @@ function getCodeDetails (code) {
 }
 
 // --------------------------------------------------------------------
-//
+// Is this entry valid for the current day?
 // --------------------------------------------------------------------
 function isValidDay (entry) {
     if (entry.valid_days == null)
@@ -454,7 +548,7 @@ function isValidDay (entry) {
 }
 
 // --------------------------------------------------------------------
-//
+// is this entry valid for the current hour?
 // --------------------------------------------------------------------
 function isValidHour (entry) {
 
@@ -472,7 +566,7 @@ function isValidHour (entry) {
 }
 
 // --------------------------------------------------------------------
-//
+// Trigger (activate) the door relay
 // --------------------------------------------------------------------
 function triggerDoorRelay () {
     logOut ('Triggering door relay!');
@@ -480,13 +574,10 @@ function triggerDoorRelay () {
 }
 
 // --------------------------------------------------------------------
-// send an SMS to everyone in the alert list
+// send an SMS to everyone in the alert list for a given entry regarding
+// the door action being taken
 // --------------------------------------------------------------------
 function sendSMSMessage (entry) {
-
-    if (twilio_client == null) {
-        return;
-    }
 
     var msg = entry.message;
     var door_open = isDoorOpen ();
@@ -494,12 +585,29 @@ function sendSMSMessage (entry) {
     if (msg == null || msg.length == 0)
         msg = entry.name + ' has ' + (door_open ? 'closed' : 'opened') + ' the door';
 
+    sendSMSMessageForEntry (entry, msg);
+}
+
+// --------------------------------------------------------------------
+// Send a message to the alert group associated with an entry
+// --------------------------------------------------------------------
+function sendSMSMessageForEntry (entry, msg) {
+    if (twilio_client == null) {
+        return;
+    }
+
+    if (msg == null || msg.length == 0) {
+        logOut ('No message specified; ignoring');
+        return;
+    }
+
     var alert_code = entry.alert;
     if (alert_code != null && alert_code.length > 0) {
 
         var sms_numbers = config.alerts [alert_code];
 
         if (sms_numbers == null || sms_numbers.length == 0) {
+            logOut ('No SMS numbers specified for ' + entry.name + '; ignoring.');
             return;
         }
 
@@ -507,6 +615,7 @@ function sendSMSMessage (entry) {
             sendSMSviaTwilio (sms_numbers[i], msg);
         }
     }
+
 }
 
 // --------------------------------------------------------------------
@@ -611,7 +720,7 @@ if (close_helper_seconds == null || close_helper_seconds == 0)
 
 logOut ('------------------------------------------------------');
 logOut ('H O D O R');
-logOut ('Version: 1.5 June 21, 2016');
+logOut ('Version: 1.6 September 4, 2016');
 logOut ('by David Geller')
 logOut ('Released as open source under the GPL')
 logOut ('------------------------------------------------------');
@@ -635,4 +744,5 @@ setupHandlers (true);
 setupTwilio ();
 
 logOut ('Listening...');
-sendSupportSMSMessage ("Hodor is now active!");
+
+sendSupportSMSMessage ("Hodor 1.6 is now active!");
